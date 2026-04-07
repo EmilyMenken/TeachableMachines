@@ -31,28 +31,50 @@
             border: none;
             color: white;
             background: #2563eb;
-            margin: 1rem 0;
+            margin: 0.5rem;
         }
         button.stop { background: #dc2626; }
-        button:hover { opacity: 0.9; }
+
+        #gameText {
+            font-size: 2rem;
+            margin: 1rem 0;
+        }
+
+        #score {
+            font-size: 1.2rem;
+            margin-top: 1rem;
+        }
     </style>
 </head>
 <body>
-    <h1>My Teachable Machine App</h1>
+
+    <h1> Rock Paper Scissors VS AI </h1>
 
     <button id="toggleButton" onclick="toggleCamera()">Start Camera</button>
+    <button onclick="startRound()">Play</button>
+
+    <div id="gameText">Press Play</div>
 
     <div id="webcam-container"></div>
     <div id="label-container"></div>
 
+    <div id="score"> Player: 0 | Computer: 0 </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
     <script>
-        // REPLACED with our teachable link
         const URL = "https://teachablemachine.withgoogle.com/models/FKDl7P-nq/";
 
         let model, webcam, labelContainer, maxPredictions;
         let isRunning = false;
+
+        let currentPrediction = "None";
+
+        //GAME STATE
+        let playerScore = 0;
+        let computerScore = 0;
+        let isCountingDown = false;
 
         async function init() {
             model = await tmImage.load(URL + "model.json", URL + "metadata.json");
@@ -69,9 +91,8 @@
 
             labelContainer = document.getElementById("label-container");
             labelContainer.innerHTML = "";
-            for (let i = 0; i < maxPredictions; i++) {
+            for (let i = 0; i < maxPredictions; i++)
                 labelContainer.appendChild(document.createElement("div"));
-            }
 
             isRunning = true;
             window.requestAnimationFrame(loop);
@@ -87,35 +108,32 @@
         async function predict() {
             const prediction = await model.predict(webcam.canvas);
 
-            // Find the class with the highest probability
             let topClass = prediction[0];
-            for (let i = 1; i < prediction.length; i++) {
-                if (prediction[i].probability > topClass.probability) {
+            for (let i = 1; i < prediction.length; i++)
+                if (prediction[i].probability > topClass.probability)
                     topClass = prediction[i];
-                }
-            }
 
-            // topClass.className is the winning label
-            // topClass.probability is how confident the model is
-            console.log(topClass.className, topClass.probability);
+            //Store best guess continuously (but NOT during countdown)
+            if (topClass.probability > 0.8 && !isCountingDown)
+                currentPrediction = topClass.className;
 
-            // Update the display
-            for (let i = 0; i < maxPredictions; i++) {
-                const classPrediction =
+            for (let i = 0; i < maxPredictions; i++)
+                labelContainer.childNodes[i].innerHTML =
                     prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-                labelContainer.childNodes[i].innerHTML = classPrediction;
-            }
 
-            if (topClass.className === "Paper" && topClass.probability > 0.8) {
-                document.body.style.backgroundColor = "#FFFFFF"; // white
-            } else if (topClass.className === "Scissors" && topClass.probability > 0.8) {
-                document.body.style.backgroundColor = "#008000"; // green
-            } else if (topClass.className === "Rock" && topClass.probability > 0.8) {
-                document.body.style.backgroundColor = "#800080"; // purple
-            } else if (topClass.className === "Background" && topClass.probability > 0.8) {
-                document.body.style.backgroundColor = "#FF0000"; // red
-            } else {
-                document.body.style.backgroundColor = "#FFFF00"; //beige
+            //BACKGROUND COLOR LOGIC (RESTORED + FROZEN DURING COUNTDOWN)
+            if (!isCountingDown) {
+                if (topClass.className === "Paper" && topClass.probability > 0.8) {
+                    document.body.style.backgroundColor = "#FFFFFF"; // white
+                } else if (topClass.className === "Scissors" && topClass.probability > 0.8) {
+                    document.body.style.backgroundColor = "#008000"; // green
+                } else if (topClass.className === "Rock" && topClass.probability > 0.8) {
+                    document.body.style.backgroundColor = "#800080"; // purple
+                } else if (topClass.className === "Background" && topClass.probability > 0.8) {
+                    document.body.style.backgroundColor = "#FF0000"; // red
+                } else {
+                    document.body.style.backgroundColor = "#FFFF00"; // beige
+                }
             }
         }
 
@@ -132,6 +150,98 @@
                 button.textContent = "Start Camera";
                 button.classList.remove("stop");
             }
+        }
+
+        //GAME LOGIC
+        async function startRound() {
+            if (isCountingDown || !isRunning) return;
+
+            isCountingDown = true;
+
+            const text = document.getElementById("gameText");
+
+            text.innerHTML = "Rock...";
+            await delay(800);
+
+            text.innerHTML = "Paper...";
+            await delay(800);
+
+            text.innerHTML = "Scissors...";
+            await delay(800);
+
+            text.innerHTML = "SHOOT!";
+            await delay(300);
+
+            const playerMove = currentPrediction;
+            const computerMove = getComputerMove();
+
+            const result = decideWinner(playerMove, computerMove);
+
+            text.innerHTML = `
+                You: ${playerMove} <br>
+                Computer: ${computerMove} <br>
+                <strong>${result}</strong>
+            `;
+
+            updateScore(result);
+
+            isCountingDown = false;
+
+            checkGameOver();
+        }
+
+        function getComputerMove() {
+            const moves = ["Rock", "Paper", "Scissors"];
+            return moves[Math.floor(Math.random() * 3)];
+        }
+
+        function decideWinner(player, computer) {
+            if (player === computer) return "Tie";
+
+            if (
+                (player === "Rock" && computer === "Scissors") ||
+                (player === "Paper" && computer === "Rock") ||
+                (player === "Scissors" && computer === "Paper")
+            ) return "You Win!";
+
+            return "You Lose!";
+        }
+
+        function updateScore(result) {
+            if (result === "You Win!") playerScore++;
+            else if (result === "You Lose!") computerScore++;
+
+            document.getElementById("score").innerHTML =
+                `Player: ${playerScore} | Computer: ${computerScore}`;
+        }
+
+        function checkGameOver() {
+            const text = document.getElementById("gameText");
+
+            if (playerScore === 3) {
+                text.innerHTML = "YOU WON!";
+                resetGame();
+            }
+
+            if (computerScore === 3) {
+                text.innerHTML = "COMPUTER WON!";
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            playerScore = 0;
+            computerScore = 0;
+
+            setTimeout(() => {
+                document.getElementById("score").innerHTML =
+                    "Player: 0 | Computer: 0";
+                document.getElementById("gameText").innerHTML = "Press Play";
+            }, 2000);
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
     </script>
 </body>
