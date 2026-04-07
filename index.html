@@ -105,6 +105,18 @@
                     prediction[i].className + ": " + prediction[i].probability.toFixed(2);
                 labelContainer.childNodes[i].innerHTML = classPrediction;
             }
+
+            if (topClass.className === "Paper" && topClass.probability > 0.8) {
+                document.body.style.backgroundColor = "#FFFFFF"; // white
+            } else if (topClass.className === "Scissors" && topClass.probability > 0.8) {
+                document.body.style.backgroundColor = "#008000"; // green
+            } else if (topClass.className === "Rock" && topClass.probability > 0.8) {
+                document.body.style.backgroundColor = "#800080"; // purple
+            } else if (topClass.className === "Background" && topClass.probability > 0.8) {
+                document.body.style.backgroundColor = "#FF0000"; // red
+            } else {
+                document.body.style.backgroundColor = "#FFFF00"; //beige
+            }
         }
 
         async function toggleCamera() {
